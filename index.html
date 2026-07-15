@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuraRecord - 极简/高清网页录屏工具</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                        <circle cx="12" cy="12" r="4" fill="currentColor" class="logo-pulse"/>
+                    </svg>
+                </div>
+                <h1>AuraRecord</h1>
+                <span class="version-tag">v1.0</span>
+            </div>
+            <div class="header-actions">
+                <div class="lang-selector-wrapper">
+                    <select id="lang-select" class="lang-select">
+                        <option value="en">English</option>
+                        <option value="zh-CN">简体中文</option>
+                        <option value="zh-TW">繁體中文</option>
+                        <option value="ja">日本語</option>
+                        <option value="ko">한국어</option>
+                        <option value="es">Español</option>
+                        <option value="fr">Français</option>
+                        <option value="de">Deutsch</option>
+                        <option value="pt">Português</option>
+                    </select>
+                </div>
+                <div class="status-indicator">
+                    <span class="status-dot green"></span>
+                    <span class="status-text" data-i18n="status-ready">系统就绪</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Dashboard -->
+        <main class="app-dashboard">
+            <!-- Left Panel: Controls -->
+            <section class="control-panel glass-card">
+                <div class="card-header">
+                    <h2 data-i18n="config-title">录制配置</h2>
+                    <p class="subtitle" data-i18n="config-subtitle">选择视频与音频输入源</p>
+                </div>
+
+                <div class="settings-group">
+                    <!-- Video Settings -->
+                    <div class="setting-item">
+                        <label class="setting-label" data-i18n="video-quality">视频质量</label>
+                        <div class="segmented-control">
+                            <input type="radio" id="quality-1080p" name="quality" value="1080p" checked>
+                            <label for="quality-1080p" data-i18n="quality-hd">1080p (高清)</label>
+                            
+                            <input type="radio" id="quality-720p" name="quality" value="720p">
+                            <label for="quality-720p" data-i18n="quality-sd">720p (标清)</label>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <label class="setting-label" data-i18n="frame-rate">帧率</label>
+                        <div class="segmented-control">
+                            <input type="radio" id="fps-60" name="fps" value="60" checked>
+                            <label for="fps-60" data-i18n="fps-smooth">60 FPS (流畅)</label>
+                            
+                            <input type="radio" id="fps-30" name="fps" value="30">
+                            <label for="fps-30" data-i18n="fps-standard">30 FPS (标准)</label>
+                        </div>
+                    </div>
+
+                    <!-- Audio Settings -->
+                    <div class="setting-item">
+                        <label class="setting-label" data-i18n="audio-source">音频源</label>
+                        <div class="toggle-list">
+                            <div class="toggle-control">
+                                <span class="toggle-info">
+                                    <span class="toggle-title" data-i18n="mic-toggle-title">麦克风录音</span>
+                                    <span class="toggle-desc" data-i18n="mic-toggle-desc">录制您的声音输入</span>
+                                </span>
+                                <label class="switch">
+                                    <input type="checkbox" id="toggle-mic" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="toggle-control">
+                                <span class="toggle-info">
+                                    <span class="toggle-title" data-i18n="sys-audio-title">系统音频</span>
+                                    <span class="toggle-desc" data-i18n="sys-audio-desc">分享屏幕时同步录制系统声音</span>
+                                </span>
+                                <label class="switch">
+                                    <input type="checkbox" id="toggle-system-audio" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Overlay Settings -->
+                    <div class="setting-item">
+                        <label class="setting-label" data-i18n="advanced-settings">高级辅助</label>
+                        <div class="toggle-list">
+                            <div class="toggle-control">
+                                <span class="toggle-info">
+                                    <span class="toggle-title" data-i18n="webcam-toggle-title">摄像头画面悬浮窗</span>
+                                    <span class="toggle-desc" data-i18n="webcam-toggle-desc">在页面上显示一个可拖拽的摄像头画面</span>
+                                </span>
+                                <label class="switch">
+                                    <input type="checkbox" id="toggle-webcam">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Visualizer -->
+                <div class="visualizer-container" id="mic-visualizer-box">
+                    <div class="visualizer-header">
+                        <span class="visualizer-title" data-i18n="mic-level">麦克风电平</span>
+                        <span class="decibel-meter" id="db-meter">-- dB</span>
+                    </div>
+                    <canvas id="audio-visualizer"></canvas>
+                </div>
+
+                <!-- Record Buttons -->
+                <div class="action-zone">
+                    <div class="timer-display" id="timer">00:00:00</div>
+                    
+                    <button class="btn btn-record" id="btn-record-start">
+                        <span class="btn-icon"></span>
+                        <span class="btn-text" data-i18n="start-recording">开始录制</span>
+                    </button>
+
+                    <div class="recording-controls hidden" id="rec-controls">
+                        <button class="btn btn-pause" id="btn-record-pause">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                <rect x="5" y="4" width="4" height="16" rx="1"/>
+                                <rect x="15" y="4" width="4" height="16" rx="1"/>
+                            </svg>
+                            <span data-i18n="pause">暂停</span>
+                        </button>
+                        <button class="btn btn-stop" id="btn-record-stop">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                <rect x="4" y="4" width="16" height="16" rx="2"/>
+                            </svg>
+                            <span data-i18n="stop">停止</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Gallery -->
+            <section class="gallery-panel glass-card">
+                <div class="card-header">
+                    <h2 data-i18n="gallery-title">本地录像库</h2>
+                    <p class="subtitle" data-i18n="gallery-subtitle">录制完成后自动保存在浏览器中，随时可导出</p>
+                </div>
+
+                <div class="gallery-empty" id="gallery-empty">
+                    <div class="empty-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                    </div>
+                    <p data-i18n="gallery-empty-title">暂无录制视频</p>
+                    <span data-i18n="gallery-empty-desc">点击左侧的“开始录制”按钮即可开始录像</span>
+                </div>
+
+                <div class="gallery-grid hidden" id="gallery-grid">
+                    <!-- Dynamic Items will be rendered here -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Draggable Webcam Overlay -->
+    <div class="webcam-overlay hidden" id="webcam-container">
+        <div class="webcam-drag-handle">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="9" cy="5" r="1" />
+                <circle cx="9" cy="12" r="1" />
+                <circle cx="9" cy="19" r="1" />
+                <circle cx="15" cy="5" r="1" />
+                <circle cx="15" cy="12" r="1" />
+                <circle cx="15" cy="19" r="1" />
+            </svg>
+        </div>
+        <video id="webcam-preview" autoplay playsinline muted></video>
+    </div>
+
+    <!-- Video Preview Modal -->
+    <div class="modal hidden" id="preview-modal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h3 id="modal-title" data-i18n="preview-title">视频预览</h3>
+                <button class="btn-close" id="btn-modal-close">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <video id="modal-video-player" controls autoplay></video>
+            </div>
+            <div class="modal-footer">
+                <div class="video-info">
+                    <span id="modal-duration">--:--</span>
+                    <span class="dot-separator"></span>
+                    <span id="modal-size">-- MB</span>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" id="btn-modal-delete" data-i18n="delete">删除</button>
+                    <button class="btn btn-primary" id="btn-modal-download">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        <span data-i18n="download-video">下载视频</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
