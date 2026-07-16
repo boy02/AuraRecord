@@ -56,6 +56,32 @@ const LANGUAGES = {
         "recording-name-default": "Recording",
         "status-recording": "Recording...",
         "status-paused": "Recording Paused",
+        "edit-video": "Edit Video",
+        "edit-title": "Video Title",
+        "edit-trim": "Trim Segments",
+        "add-segment": "Add Segment",
+        "segment-start": "Start",
+        "segment-end": "End",
+        "edit-filters": "Visual Filter",
+        "filter-none": "Original",
+        "filter-grayscale": "B&W",
+        "filter-sepia": "Sepia",
+        "filter-invert": "Invert",
+        "filter-warm": "Warm",
+        "filter-cool": "Cool",
+        "cancel": "Cancel",
+        "save-copy": "Save as Copy",
+        "save-overwrite": "Overwrite Original",
+        "exporting-title": "Processing Video...",
+        "exporting-desc": "Rendering segments and filters, please do not close the page.",
+        "toast-edit-success": "Video edited and saved successfully!",
+        "toast-edit-failed": "Failed to process and edit video",
+        "toast-invalid-segments": "Invalid trim range (End must be greater than Start)",
+        "toast-no-segments": "Please add at least one segment to trim",
+        "btn-edit": "Edit",
+        "trim-tip": "Select video segments to keep. Move playhead and click '[ Mark Start' or '] Mark End' to set values, or input numbers. Multiple segments will be joined together.",
+        "mark-start": "[ Mark Start",
+        "mark-end": "] Mark End",
     },
     "zh-CN": {
         "page-title": "AuraRecord - 极简/高清网页录屏工具",
@@ -109,6 +135,32 @@ const LANGUAGES = {
         "recording-name-default": "录屏",
         "status-recording": "录制中...",
         "status-paused": "录制暂停",
+        "edit-video": "编辑视频",
+        "edit-title": "视频标题",
+        "edit-trim": "剪裁片段",
+        "add-segment": "添加片段",
+        "segment-start": "起点",
+        "segment-end": "终点",
+        "edit-filters": "视觉滤镜",
+        "filter-none": "无滤镜",
+        "filter-grayscale": "黑白",
+        "filter-sepia": "复古",
+        "filter-invert": "反色",
+        "filter-warm": "暖色",
+        "filter-cool": "冷色",
+        "cancel": "取消",
+        "save-copy": "保存为副本",
+        "save-overwrite": "覆盖原视频",
+        "exporting-title": "正在处理视频...",
+        "exporting-desc": "正在利用浏览器渲染视频片段与滤镜，请勿关闭页面",
+        "toast-edit-success": "视频编辑并保存成功！",
+        "toast-edit-failed": "处理并编辑视频失败",
+        "toast-invalid-segments": "无效的剪裁范围（结束时间必须大于开始时间）",
+        "toast-no-segments": "请至少添加一个裁剪片段",
+        "btn-edit": "编辑",
+        "trim-tip": "选择需要保留的视频片段。拖动播放进度条，点击 [ 标记起点 或 ] 标记终点，也可以直接输入秒数。支持保留多段，保存时会自动合并。",
+        "mark-start": "[ 标记起点",
+        "mark-end": "] 标记终点",
     },
     "zh-TW": {
         "page-title": "AuraRecord - 極簡/高清網頁錄屏工具",
@@ -1125,6 +1177,35 @@ class UIApp {
         this.btnModalDownload = document.getElementById('btn-modal-download');
         this.currentPreviewItem = null;
 
+        // Video Editor Elements
+        this.appDashboard = document.getElementById('app-dashboard');
+        this.appEditor = document.getElementById('app-editor');
+        this.btnModalEdit = document.getElementById('btn-modal-edit');
+        this.btnEditorBack = document.getElementById('btn-editor-back');
+        this.editorVideoPlayer = document.getElementById('editor-video-player');
+        this.editorVideoSourceInfo = document.getElementById('editor-video-source-info');
+        this.editorCurrentSize = document.getElementById('editor-current-size');
+        this.editorCurrentDuration = document.getElementById('editor-current-duration');
+
+        this.editorVideoName = document.getElementById('editor-video-name');
+        this.btnEditorAddSegment = document.getElementById('btn-editor-add-segment');
+        this.editorSegmentsList = document.getElementById('editor-segments-list');
+        this.timelineTrack = document.getElementById('timeline-track');
+        this.timelinePlayhead = document.getElementById('timeline-playhead');
+        this.timelineTimeCurrent = document.getElementById('timeline-time-current');
+        this.timelineTimeDuration = document.getElementById('timeline-time-duration');
+        this.btnEditorCancel = document.getElementById('btn-editor-cancel');
+        this.btnEditorSaveCopy = document.getElementById('btn-editor-save-copy');
+        this.btnEditorSaveOverwrite = document.getElementById('btn-editor-save-overwrite');
+        this.exportModal = document.getElementById('export-modal');
+        this.exportProgressPercent = document.getElementById('export-progress-percent');
+        this.exportProgressFill = document.getElementById('export-progress-fill');
+
+        // Video Editor State
+        this.isEditing = false;
+        this.editorSegments = [];
+        this.editorFilter = 'none';
+
         this.init();
     }
 
@@ -1161,6 +1242,82 @@ class UIApp {
         this.btnModalClose.addEventListener('click', () => this.closePreviewModal());
         this.btnModalDelete.addEventListener('click', () => this.deleteCurrentItem());
         this.btnModalDownload.addEventListener('click', () => this.downloadCurrentItem());
+
+        // Video Editor Event Listeners
+        this.btnModalEdit.addEventListener('click', () => this.enterEditMode());
+        this.btnEditorBack.addEventListener('click', () => this.exitEditMode());
+        this.btnEditorCancel.addEventListener('click', () => this.exitEditMode());
+        this.btnEditorAddSegment.addEventListener('click', () => this.addEditorSegment());
+        this.btnEditorSaveCopy.addEventListener('click', () => this.saveEditorChanges(false));
+        this.btnEditorSaveOverwrite.addEventListener('click', () => this.saveEditorChanges(true));
+
+        // Filter Options Clicks
+        document.querySelectorAll('.filter-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                document.querySelectorAll('.filter-option').forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                this.editorFilter = opt.dataset.filter;
+                
+                // Live preview filter on the editor player
+                const filterClass = `filter-${this.editorFilter}`;
+                this.editorVideoPlayer.className = filterClass;
+            });
+        });
+
+        // Timeline playhead updates
+        this.editorVideoPlayer.addEventListener('timeupdate', () => {
+            if (!this.currentPreviewItem || !this.isEditing) return;
+            const duration = this._getDuration() || 1;
+            const current = this.editorVideoPlayer.currentTime;
+            
+            const percent = (current / duration) * 100;
+            this.timelinePlayhead.style.left = `${percent}%`;
+            
+            this.timelineTimeCurrent.textContent = this.formatTimeShort(current);
+            this.timelineTimeDuration.textContent = this.formatTimeShort(duration);
+        });
+
+        // Timeline scrubbing
+        this.timelineTrack.addEventListener('click', (e) => {
+            if (!this.currentPreviewItem) return;
+            const rect = this.timelineTrack.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const percent = clickX / rect.width;
+            const duration = this._getDuration();
+            this.editorVideoPlayer.currentTime = percent * duration;
+        });
+
+        // ESC key listeners to exit preview modal (using capturing phase and both keydown/keyup on window & video player for double-layered reliability)
+        const handleEscapeClose = (e) => {
+            if (e.key === 'Escape') {
+                if (this.previewModal && !this.previewModal.classList.contains('hidden')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.closePreviewModal();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleEscapeClose, true);
+        window.addEventListener('keyup', handleEscapeClose, true);
+        this.modalPlayer.addEventListener('keydown', handleEscapeClose, true);
+        this.modalPlayer.addEventListener('keyup', handleEscapeClose, true);
+
+        // Auto-blur the video player when focused or clicked, keeping keyboard focus on body so Escape key works
+        const blurPlayer = () => {
+            setTimeout(() => {
+                if (this.modalPlayer) {
+                    this.modalPlayer.blur();
+                }
+                if (document.activeElement && document.activeElement !== document.body) {
+                    document.activeElement.blur();
+                }
+            }, 50);
+        };
+
+        this.modalPlayer.addEventListener('focus', blurPlayer);
+        this.modalPlayer.addEventListener('click', blurPlayer);
+        this.modalPlayer.addEventListener('mouseup', blurPlayer);
 
         this.refreshGallery();
         this._checkVisualizerState();
@@ -1403,6 +1560,13 @@ class UIApp {
                     </svg>
                     ${I18n.t('btn-download')}
                 </button>
+                <button class="btn-item btn-item-edit" title="${I18n.t('btn-edit')}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    ${I18n.t('btn-edit')}
+                </button>
                 <button class="btn-item btn-item-delete" title="${I18n.t('btn-delete')}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="3 6 5 6 21 6"/>
@@ -1422,6 +1586,12 @@ class UIApp {
         card.querySelector('.btn-item-download').addEventListener('click', (e) => {
             e.stopPropagation();
             this._downloadRecording(item);
+        });
+
+        card.querySelector('.btn-item-edit').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.currentPreviewItem = item;
+            this.enterEditMode();
         });
 
         card.querySelector('.btn-item-delete').addEventListener('click', (e) => {
@@ -1449,6 +1619,10 @@ class UIApp {
     }
 
     closePreviewModal() {
+        if (this.isEditing) {
+            this.exitEditMode();
+        }
+
         this.previewModal.classList.add('hidden');
         
         if (this.modalPlayer.src) {
@@ -1496,6 +1670,526 @@ class UIApp {
             console.error('Delete error:', err);
             showToast(I18n.t('toast-delete-failed'), 'error');
         }
+    }
+
+    _getDuration() {
+        if (this.currentPreviewItem && this.currentPreviewItem.durationMs) {
+            return this.currentPreviewItem.durationMs / 1000;
+        }
+        if (this.editorVideoPlayer && this.editorVideoPlayer.duration && isFinite(this.editorVideoPlayer.duration)) {
+            return this.editorVideoPlayer.duration;
+        }
+        return 0;
+    }
+
+    // --- Video Editor UI Logic ---
+    enterEditMode() {
+        if (!this.currentPreviewItem) return;
+        
+        this.isEditing = true;
+        
+        // Pause preview modal video and hide modal
+        this.modalPlayer.pause();
+        this.previewModal.classList.add('hidden');
+        
+        // Toggle workspace views
+        this.appDashboard.classList.add('hidden');
+        this.appEditor.classList.remove('hidden');
+        
+        // Set editor video source
+        const url = URL.createObjectURL(this.currentPreviewItem.blob);
+        this.editorVideoPlayer.src = url;
+        
+        // Source metadata info tags
+        const sizeMB = (this.currentPreviewItem.size / (1024 * 1024)).toFixed(1);
+        this.editorVideoSourceInfo.textContent = `${this.currentPreviewItem.quality} | ${this.currentPreviewItem.fps}fps | ${new Date(this.currentPreviewItem.date).toLocaleDateString()}`;
+        this.editorCurrentSize.textContent = `${sizeMB} MB`;
+        this.editorCurrentDuration.textContent = this.currentPreviewItem.duration;
+        
+        // Populate name input
+        this.editorVideoName.value = this.currentPreviewItem.name;
+        
+        // Reset visual filter preview state
+        this.editorFilter = 'none';
+        document.querySelectorAll('.filter-option').forEach(opt => {
+            opt.classList.remove('active');
+            if (opt.dataset.filter === 'none') {
+                opt.classList.add('active');
+            }
+        });
+        this.editorVideoPlayer.className = '';
+        
+        // Segment timeline initialization using reliable DB duration immediately (fixes Chrome WebM Infinity bug)
+        const duration = this._getDuration() || 10;
+        this.editorSegments = [{
+            id: Date.now(),
+            start: 0,
+            end: parseFloat(duration.toFixed(1))
+        }];
+        
+        this.renderSegmentsList();
+        this.editorVideoPlayer.load();
+    }
+
+    exitEditMode() {
+        this.isEditing = false;
+        
+        // Toggle workspace views
+        this.appDashboard.classList.remove('hidden');
+        this.appEditor.classList.add('hidden');
+        
+        // Clear and stop editor player
+        if (this.editorVideoPlayer.src) {
+            URL.revokeObjectURL(this.editorVideoPlayer.src);
+            this.editorVideoPlayer.src = '';
+        }
+        this.editorVideoPlayer.className = '';
+        
+        // Clear preview player
+        if (this.modalPlayer.src) {
+            URL.revokeObjectURL(this.modalPlayer.src);
+            this.modalPlayer.src = '';
+        }
+        this.currentPreviewItem = null;
+        
+        this._checkVisualizerState();
+    }
+
+    addEditorSegment() {
+        const duration = this._getDuration();
+        const id = Date.now() + Math.random();
+        
+        let lastEnd = 0;
+        if (this.editorSegments.length > 0) {
+            lastEnd = this.editorSegments[this.editorSegments.length - 1].end;
+        }
+        
+        const start = Math.min(lastEnd, duration);
+        const end = Math.min(start + 5, duration);
+        
+        this.editorSegments.push({ id, start, end });
+        this.renderSegmentsList();
+    }
+
+    renderSegmentsList() {
+        this.editorSegmentsList.innerHTML = '';
+        const duration = this._getDuration();
+        
+        this.editorSegments.forEach((seg, idx) => {
+            const row = document.createElement('div');
+            row.className = 'segment-control-row';
+            row.innerHTML = `
+                <span class="segment-num">#${idx + 1}</span>
+                <div class="segment-input-group">
+                    <span>${I18n.t('segment-start')}</span>
+                    <div class="input-with-action">
+                        <input type="number" class="segment-input segment-start-input" min="0" max="${duration}" step="0.1" value="${seg.start.toFixed(1)}">
+                        <button class="btn-set-time btn-set-start" title="使用当前播放时间为起点">${I18n.t('mark-start')}</button>
+                    </div>
+                </div>
+                <div class="segment-input-group">
+                    <span>${I18n.t('segment-end')}</span>
+                    <div class="input-with-action">
+                        <input type="number" class="segment-input segment-end-input" min="0" max="${duration}" step="0.1" value="${seg.end.toFixed(1)}">
+                        <button class="btn-set-time btn-set-end" title="使用当前播放时间为终点">${I18n.t('mark-end')}</button>
+                    </div>
+                </div>
+                <button class="btn-delete-segment" title="删除">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        <line x1="10" y1="11" x2="10" y2="17"/>
+                        <line x1="14" y1="11" x2="14" y2="17"/>
+                    </svg>
+                </button>
+            `;
+            
+            const startInput = row.querySelector('.segment-start-input');
+            const endInput = row.querySelector('.segment-end-input');
+            
+            const updateValues = () => {
+                let start = parseFloat(startInput.value) || 0;
+                let end = parseFloat(endInput.value) || 0;
+                
+                start = Math.max(0, Math.min(start, duration));
+                end = Math.max(0, Math.min(end, duration));
+                
+                seg.start = start;
+                seg.end = end;
+                this.updateTimelineVisuals();
+            };
+            
+            startInput.addEventListener('change', updateValues);
+            endInput.addEventListener('change', updateValues);
+            
+            row.querySelector('.btn-set-start').addEventListener('click', () => {
+                startInput.value = this.editorVideoPlayer.currentTime.toFixed(1);
+                updateValues();
+            });
+            
+            row.querySelector('.btn-set-end').addEventListener('click', () => {
+                endInput.value = this.editorVideoPlayer.currentTime.toFixed(1);
+                updateValues();
+            });
+            
+            row.querySelector('.btn-delete-segment').addEventListener('click', () => {
+                this.editorSegments = this.editorSegments.filter(s => s.id !== seg.id);
+                this.renderSegmentsList();
+                this.updateTimelineVisuals();
+            });
+            
+            this.editorSegmentsList.appendChild(row);
+        });
+        
+        this.updateTimelineVisuals();
+    }
+
+    updateTimelineVisuals() {
+        this.timelineTrack.querySelectorAll('.timeline-segment-highlight').forEach(el => el.remove());
+        const duration = this._getDuration() || 1;
+        
+        this.editorSegments.forEach(seg => {
+            const leftPercent = (seg.start / duration) * 100;
+            const widthPercent = ((seg.end - seg.start) / duration) * 100;
+            
+            const highlight = document.createElement('div');
+            highlight.className = 'timeline-segment-highlight';
+            highlight.style.left = `${leftPercent}%`;
+            highlight.style.width = `${widthPercent}%`;
+            
+            this.timelineTrack.appendChild(highlight);
+        });
+    }
+
+    formatTimeShort(seconds) {
+        if (isNaN(seconds)) return '00:00.0';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        const ms = Math.floor((seconds % 1) * 10);
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${ms}`;
+    }
+
+    validateEditor() {
+        const name = this.editorVideoName.value.trim();
+        if (!name) {
+            showToast(I18n.t('toast-invalid-name') || '标题不能为空', 'error');
+            return false;
+        }
+        if (this.editorSegments.length === 0) {
+            showToast(I18n.t('toast-no-segments'), 'error');
+            return false;
+        }
+        for (const seg of this.editorSegments) {
+            if (seg.end <= seg.start) {
+                showToast(I18n.t('toast-invalid-segments'), 'error');
+                return false;
+            }
+        }
+        return true;
+    }
+
+    async saveEditorChanges(isOverwrite) {
+        if (!this.validateEditor()) return;
+        
+        this.editorVideoPlayer.pause();
+        
+        this.exportProgressPercent.textContent = '0%';
+        this.exportProgressFill.style.width = '0%';
+        this.exportModal.classList.remove('hidden');
+        
+        const editorInstance = new VideoEditor(
+            this.currentPreviewItem.blob,
+            this.editorSegments,
+            this.editorFilter,
+            (percent) => {
+                this.exportProgressPercent.textContent = `${percent}%`;
+                this.exportProgressFill.style.width = `${percent}%`;
+            },
+            async (editedBlob, newThumbnail) => {
+                this.exportModal.classList.add('hidden');
+                showToast(I18n.t('toast-edit-success'), 'success');
+                
+                const totalDurationMs = Math.round(this.editorSegments.reduce((acc, s) => acc + (s.end - s.start), 0) * 1000);
+                const durationFormatted = this.recorder._formatDuration(totalDurationMs);
+                
+                const newRecord = {
+                    name: this.editorVideoName.value.trim(),
+                    blob: editedBlob,
+                    duration: durationFormatted,
+                    durationMs: totalDurationMs,
+                    size: editedBlob.size,
+                    date: new Date().toISOString(),
+                    quality: this.currentPreviewItem.quality,
+                    fps: this.currentPreviewItem.fps,
+                    thumbnail: newThumbnail || this.currentPreviewItem.thumbnail
+                };
+                
+                if (isOverwrite) {
+                    newRecord.id = this.currentPreviewItem.id;
+                } else {
+                    newRecord.id = 'rec_' + Date.now();
+                }
+                
+                try {
+                    await Database.saveRecording(newRecord);
+                    this.exitEditMode();
+                    this.refreshGallery();
+                } catch (dbErr) {
+                    console.error(dbErr);
+                    showToast(I18n.t('toast-db-failed'), 'warning');
+                }
+            },
+            (err) => {
+                this.exportModal.classList.add('hidden');
+                showToast(`${I18n.t('toast-edit-failed')}: ${err.message}`, 'error');
+            }
+        );
+        
+        editorInstance.start();
+    }
+}
+
+// --- Video Editor Controller (Canvas + Web Audio + MediaRecorder) ---
+class VideoEditor {
+    constructor(originalBlob, segments, filter, onProgress, onComplete, onError) {
+        this.originalBlob = originalBlob;
+        this.segments = segments.sort((a, b) => a.start - b.start);
+        this.filter = filter;
+        this.onProgress = onProgress;
+        this.onComplete = onComplete;
+        this.onError = onError;
+
+        this.video = null;
+        this.canvas = null;
+        this.ctx = null;
+        this.audioCtx = null;
+        this.mediaRecorder = null;
+        this.recordedChunks = [];
+        this.isPlaying = false;
+        
+        this.currentSegmentIdx = 0;
+        this.totalDurationSec = this.segments.reduce((acc, seg) => acc + (seg.end - seg.start), 0);
+        this.completedDurationSec = 0;
+        this.thumbnail = null;
+        this.thumbnailCaptured = false;
+        
+        this.animationFrameId = null;
+        this.drawTimeoutId = null;
+    }
+
+    async start() {
+        if (this.segments.length === 0) {
+            if (this.onError) this.onError(new Error('No segments selected'));
+            return;
+        }
+
+        try {
+            this.video = document.createElement('video');
+            this.video.src = URL.createObjectURL(this.originalBlob);
+            this.video.playsInline = true;
+            this.video.muted = false; // Must be false for Web Audio element source
+            
+            // Wait for metadata
+            await new Promise((resolve, reject) => {
+                this.video.onloadedmetadata = () => resolve();
+                this.video.onerror = () => reject(this.video.error || new Error('Load video failed'));
+            });
+
+            // Initialize canvas
+            this.canvas = document.createElement('canvas');
+            this.canvas.width = this.video.videoWidth || 1280;
+            this.canvas.height = this.video.videoHeight || 720;
+            this.ctx = this.canvas.getContext('2d');
+
+            // Setup Web Audio API for extracting audio
+            this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const source = this.audioCtx.createMediaElementAudioSourceNode(this.video);
+            const audioDestination = this.audioCtx.createMediaStreamDestination();
+            source.connect(audioDestination);
+
+            // Capture streams
+            const canvasStream = this.canvas.captureStream(30); // 30 FPS stream
+            
+            const combinedStream = new MediaStream();
+            canvasStream.getVideoTracks().forEach(track => combinedStream.addTrack(track));
+            audioDestination.stream.getAudioTracks().forEach(track => combinedStream.addTrack(track));
+
+            // Setup MediaRecorder
+            let optionsCodec = { mimeType: 'video/webm;codecs=vp9,opus' };
+            if (!MediaRecorder.isTypeSupported(optionsCodec.mimeType)) {
+                optionsCodec = { mimeType: 'video/webm;codecs=vp8,opus' };
+                if (!MediaRecorder.isTypeSupported(optionsCodec.mimeType)) {
+                    optionsCodec = { mimeType: 'video/webm' };
+                }
+            }
+
+            this.mediaRecorder = new MediaRecorder(combinedStream, optionsCodec);
+            this.recordedChunks = [];
+            this.mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    this.recordedChunks.push(event.data);
+                }
+            };
+
+            this.mediaRecorder.onstop = () => {
+                const finalBlob = new Blob(this.recordedChunks, { type: 'video/webm' });
+                this.cleanup();
+                if (this.onComplete) {
+                    this.onComplete(finalBlob, this.thumbnail);
+                }
+            };
+
+            // Seek to first segment start
+            this.currentSegmentIdx = 0;
+            this.completedDurationSec = 0;
+            this.video.currentTime = this.segments[0].start;
+
+            await new Promise((resolve) => {
+                const onInitialSeeked = () => {
+                    this.video.removeEventListener('seeked', onInitialSeeked);
+                    resolve();
+                };
+                this.video.addEventListener('seeked', onInitialSeeked);
+            });
+
+            // Start recording
+            this.mediaRecorder.start();
+            this.video.play();
+            this.isPlaying = true;
+
+            // Start rendering loop
+            this._renderLoop();
+
+        } catch (err) {
+            console.error('Editor start failed:', err);
+            this.cleanup();
+            if (this.onError) this.onError(err);
+        }
+    }
+
+    _renderLoop() {
+        const drawFrame = () => {
+            if (!this.isPlaying) return;
+
+            const currentSeg = this.segments[this.currentSegmentIdx];
+            if (this.video.currentTime >= currentSeg.end) {
+                this._handleSegmentEnd();
+                return;
+            }
+
+            // Draw to Canvas with Filter
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            let ctxFilter = 'none';
+            if (this.filter === 'grayscale') ctxFilter = 'grayscale(100%)';
+            else if (this.filter === 'sepia') ctxFilter = 'sepia(80%)';
+            else if (this.filter === 'invert') ctxFilter = 'invert(90%)';
+            else if (this.filter === 'warm') ctxFilter = 'sepia(30%) saturate(140%) hue-rotate(-10deg)';
+            else if (this.filter === 'cool') ctxFilter = 'contrast(110%) saturate(110%) hue-rotate(20deg) brightness(95%)';
+            
+            this.ctx.filter = ctxFilter;
+            this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+
+            // Capture thumbnail at 0.5s of the first segment (or middle)
+            if (!this.thumbnailCaptured && this.video.currentTime >= (currentSeg.start + Math.min(0.5, (currentSeg.end - currentSeg.start) / 2))) {
+                try {
+                    const thumbCanvas = document.createElement('canvas');
+                    thumbCanvas.width = 640;
+                    thumbCanvas.height = 360;
+                    const thumbCtx = thumbCanvas.getContext('2d');
+                    thumbCtx.filter = ctxFilter;
+                    thumbCtx.drawImage(this.video, 0, 0, thumbCanvas.width, thumbCanvas.height);
+                    this.thumbnail = thumbCanvas.toDataURL('image/jpeg', 0.7);
+                    this.thumbnailCaptured = true;
+                } catch (e) {
+                    console.error('Failed to capture inline thumbnail', e);
+                }
+            }
+
+            // Update Progress
+            const currentSegProgress = Math.max(0, this.video.currentTime - currentSeg.start);
+            const totalElapsed = this.completedDurationSec + currentSegProgress;
+            const progressPercent = Math.min(100, (totalElapsed / this.totalDurationSec) * 100);
+            if (this.onProgress) {
+                this.onProgress(Math.round(progressPercent));
+            }
+
+            // Continue loop
+            if (this.video.requestVideoFrameCallback) {
+                this.animationFrameId = this.video.requestVideoFrameCallback(drawFrame);
+            } else {
+                this.drawTimeoutId = setTimeout(drawFrame, 1000 / 30);
+            }
+        };
+
+        if (this.video.requestVideoFrameCallback) {
+            this.animationFrameId = this.video.requestVideoFrameCallback(drawFrame);
+        } else {
+            drawFrame();
+        }
+    }
+
+    async _handleSegmentEnd() {
+        this.isPlaying = false;
+        this.video.pause();
+        
+        const currentSeg = this.segments[this.currentSegmentIdx];
+        this.completedDurationSec += (currentSeg.end - currentSeg.start);
+
+        this.currentSegmentIdx++;
+
+        if (this.currentSegmentIdx >= this.segments.length) {
+            if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+                this.mediaRecorder.stop();
+            }
+        } else {
+            if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                this.mediaRecorder.pause();
+            }
+
+            const nextSeg = this.segments[this.currentSegmentIdx];
+            this.video.currentTime = nextSeg.start;
+
+            const onSeeked = () => {
+                this.video.removeEventListener('seeked', onSeeked);
+                
+                if (this.mediaRecorder && this.mediaRecorder.state === 'paused') {
+                    this.mediaRecorder.resume();
+                }
+                
+                this.isPlaying = true;
+                this.video.play();
+                this._renderLoop();
+            };
+            this.video.addEventListener('seeked', onSeeked);
+        }
+    }
+
+    cleanup() {
+        this.isPlaying = false;
+        
+        if (this.animationFrameId && this.video && this.video.cancelVideoFrameCallback) {
+            this.video.cancelVideoFrameCallback(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+        if (this.drawTimeoutId) {
+            clearTimeout(this.drawTimeoutId);
+            this.drawTimeoutId = null;
+        }
+
+        if (this.video) {
+            this.video.pause();
+            this.video.src = '';
+            this.video.load();
+            this.video = null;
+        }
+
+        if (this.audioCtx && this.audioCtx.state !== 'closed') {
+            this.audioCtx.close();
+            this.audioCtx = null;
+        }
+
+        this.mediaRecorder = null;
     }
 }
 
