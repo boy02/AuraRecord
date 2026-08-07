@@ -2003,7 +2003,7 @@ class VideoEditor {
 
             // Setup Web Audio API for extracting audio
             this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const source = this.audioCtx.createMediaElementAudioSourceNode(this.video);
+            const source = this.audioCtx.createMediaElementSource(this.video);
             const audioDestination = this.audioCtx.createMediaStreamDestination();
             source.connect(audioDestination);
 
@@ -2032,10 +2032,20 @@ class VideoEditor {
             };
 
             this.mediaRecorder.onstop = () => {
+                if (this.onProgress) {
+                    this.onProgress(100);
+                }
                 const finalBlob = new Blob(this.recordedChunks, { type: 'video/webm' });
                 this.cleanup();
                 if (this.onComplete) {
                     this.onComplete(finalBlob, this.thumbnail);
+                }
+            };
+
+            // Video ended fallback listener
+            this.video.onended = () => {
+                if (this.isPlaying) {
+                    this._handleSegmentEnd();
                 }
             };
 
@@ -2045,11 +2055,15 @@ class VideoEditor {
             this.video.currentTime = this.segments[0].start;
 
             await new Promise((resolve) => {
+                let seekedFired = false;
                 const onInitialSeeked = () => {
-                    this.video.removeEventListener('seeked', onInitialSeeked);
+                    if (seekedFired) return;
+                    seekedFired = true;
+                    if (this.video) this.video.removeEventListener('seeked', onInitialSeeked);
                     resolve();
                 };
                 this.video.addEventListener('seeked', onInitialSeeked);
+                setTimeout(onInitialSeeked, 800);
             });
 
             // Start recording
@@ -2072,7 +2086,10 @@ class VideoEditor {
             if (!this.isPlaying) return;
 
             const currentSeg = this.segments[this.currentSegmentIdx];
-            if (this.video.currentTime >= currentSeg.end) {
+            const reachesSegEnd = (this.video.currentTime >= currentSeg.end - 0.05);
+            const videoEnded = this.video.ended || (this.video.duration && !isNaN(this.video.duration) && this.video.currentTime >= this.video.duration - 0.05);
+
+            if (reachesSegEnd || videoEnded) {
                 this._handleSegmentEnd();
                 return;
             }
@@ -2107,9 +2124,9 @@ class VideoEditor {
             }
 
             // Update Progress
-            const currentSegProgress = Math.max(0, this.video.currentTime - currentSeg.start);
+            const currentSegProgress = Math.max(0, Math.min(currentSeg.end - currentSeg.start, this.video.currentTime - currentSeg.start));
             const totalElapsed = this.completedDurationSec + currentSegProgress;
-            const progressPercent = Math.min(100, (totalElapsed / this.totalDurationSec) * 100);
+            const progressPercent = Math.min(99, (totalElapsed / this.totalDurationSec) * 100);
             if (this.onProgress) {
                 this.onProgress(Math.round(progressPercent));
             }
@@ -2130,11 +2147,14 @@ class VideoEditor {
     }
 
     async _handleSegmentEnd() {
+        if (!this.isPlaying) return;
         this.isPlaying = false;
-        this.video.pause();
+        if (this.video) this.video.pause();
         
         const currentSeg = this.segments[this.currentSegmentIdx];
-        this.completedDurationSec += (currentSeg.end - currentSeg.start);
+        if (currentSeg) {
+            this.completedDurationSec += (currentSeg.end - currentSeg.start);
+        }
 
         this.currentSegmentIdx++;
 
@@ -2148,20 +2168,26 @@ class VideoEditor {
             }
 
             const nextSeg = this.segments[this.currentSegmentIdx];
-            this.video.currentTime = nextSeg.start;
+            if (this.video) {
+                this.video.currentTime = nextSeg.start;
 
-            const onSeeked = () => {
-                this.video.removeEventListener('seeked', onSeeked);
-                
-                if (this.mediaRecorder && this.mediaRecorder.state === 'paused') {
-                    this.mediaRecorder.resume();
-                }
-                
-                this.isPlaying = true;
-                this.video.play();
-                this._renderLoop();
-            };
-            this.video.addEventListener('seeked', onSeeked);
+                let seekedFired = false;
+                const onSeeked = () => {
+                    if (seekedFired) return;
+                    seekedFired = true;
+                    if (this.video) this.video.removeEventListener('seeked', onSeeked);
+                    
+                    if (this.mediaRecorder && this.mediaRecorder.state === 'paused') {
+                        this.mediaRecorder.resume();
+                    }
+                    
+                    this.isPlaying = true;
+                    if (this.video) this.video.play();
+                    this._renderLoop();
+                };
+                this.video.addEventListener('seeked', onSeeked);
+                setTimeout(onSeeked, 800);
+            }
         }
     }
 
